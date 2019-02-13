@@ -20,14 +20,64 @@ namespace Qml.Net.Internal.CodeGen
                 typeof(void),
                 new Type[]{typeof(NetReference), typeof(List<NetVariant>), typeof(NetVariant)});
 
-            var il = dynamicMethod.GetILGenerator();
-            il.Emit(OpCodes.Ldarg_0);
-            il.Emit(OpCodes.Callvirt, instanceProperty.GetMethod);
-            il.Emit(OpCodes.Castclass, invokeType);
-            il.Emit(OpCodes.Callvirt, invokeMethod);
-            il.Emit(OpCodes.Ret);
-
+            if (invokeMethod.ReturnType != null && invokeMethod.ReturnType != typeof(void))
+            {
+                var netValueProp = typeof(NetVariant).GetProperty("Int");
+                // This method has a return type.
+                var il = dynamicMethod.GetILGenerator();
+                il.Emit(OpCodes.Ldarg_2);
+                il.Emit(OpCodes.Ldarg_0);
+                il.Emit(OpCodes.Callvirt, instanceProperty.GetMethod);
+                il.Emit(OpCodes.Castclass, invokeType);
+                il.Emit(OpCodes.Callvirt, invokeMethod);
+                il.Emit(OpCodes.Callvirt, netValueProp.SetMethod);
+                il.Emit(OpCodes.Ret);
+            }
+            else
+            {
+                var il = dynamicMethod.GetILGenerator();
+                il.Emit(OpCodes.Ldarg_0);
+                il.Emit(OpCodes.Callvirt, instanceProperty.GetMethod);
+                il.Emit(OpCodes.Castclass, invokeType);
+                il.Emit(OpCodes.Callvirt, invokeMethod);
+                il.Emit(OpCodes.Ret);
+            }
+           
             return (InvokeMethodDelegate)dynamicMethod.CreateDelegate(typeof(InvokeMethodDelegate));
+        }
+        
+        private NetVariantType GetPrefVariantType(Type typeInfo)
+        {
+            if (typeInfo == typeof(bool))
+                return NetVariantType.Bool;
+            if (typeInfo == typeof(char))
+                return NetVariantType.Char;
+            if (typeInfo == typeof(int))
+                return NetVariantType.Int;
+            if (typeInfo == typeof(uint))
+                return NetVariantType.UInt;
+            if (typeInfo == typeof(long))
+                return NetVariantType.Long;
+            if (typeInfo == typeof(ulong))
+                return NetVariantType.ULong;
+            if (typeInfo == typeof(float))
+                return NetVariantType.Float;
+            if (typeInfo == typeof(double))
+                return NetVariantType.Double;
+            if (typeInfo == typeof(string))
+                return NetVariantType.String;
+            if (typeInfo == typeof(DateTimeOffset))
+                return NetVariantType.DateTime;
+
+            if (typeInfo.IsGenericType &&
+                typeInfo.GetGenericTypeDefinition() == typeof(Nullable<>))
+            {
+                // ReSharper disable TailRecursiveCall
+                return GetPrefVariantType(typeInfo.GetGenericArguments()[0]);
+                // ReSharper restore TailRecursiveCall
+            }
+
+            return NetVariantType.Object;
         }
     }
 }
